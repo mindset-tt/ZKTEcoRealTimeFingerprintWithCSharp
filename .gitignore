@@ -1,0 +1,34 @@
+# .NET Build outputs
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+*.vscode/
+
+# Environment configuration (contains passwords)
+.env
+
+# Log files
+logs/
+*.log
+
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Rider
+.idea/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db

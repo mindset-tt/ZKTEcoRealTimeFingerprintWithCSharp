@@ -1,0 +1,140 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.EventLog;
+
+namespace ZKTecoRealTimeLog
+{
+    class Program
+    {
+        static async Task Main(string[] args)
+        {
+            // Check for console mode
+            bool isConsoleMode = args.Contains("--console") || args.Contains("-c");
+            bool showHelp = args.Contains("--help") || args.Contains("-h") || args.Contains("/?");
+            bool showDbTypes = args.Contains("--db-types");
+
+            if (showHelp)
+            {
+                ShowHelp();
+                return;
+            }
+
+            if (showDbTypes)
+            {
+                Database.DatabaseFactory.PrintSupportedDatabases();
+                return;
+            }
+
+            if (isConsoleMode)
+            {
+                // Run in console mode (interactive)
+                Console.WriteLine("===========================================");
+                Console.WriteLine("   ZKTeco K40 Real-Time Log Monitor");
+                Console.WriteLine("   Console Mode");
+                Console.WriteLine("===========================================");
+                Console.WriteLine();
+            }
+
+            var builder = Host.CreateApplicationBuilder(args);
+
+            // Configure logging
+            builder.Logging.ClearProviders();
+            
+            if (isConsoleMode)
+            {
+                // Console mode: show logs in console
+                builder.Logging.AddConsole();
+                builder.Logging.SetMinimumLevel(LogLevel.Information);
+            }
+            else
+            {
+                // Service mode: log to Windows Event Log
+                builder.Logging.AddEventLog(new EventLogSettings
+                {
+                    SourceName = "ZKTeco Attendance",
+                    LogName = "Application"
+                });
+                builder.Logging.SetMinimumLevel(LogLevel.Information);
+            }
+
+            // Add the worker service
+            builder.Services.AddHostedService<AttendanceWorker>();
+
+            // Configure as Windows Service (when not in console mode)
+            if (!isConsoleMode)
+            {
+                builder.Services.AddWindowsService(options =>
+                {
+                    options.ServiceName = "ZKTeco Attendance Service";
+                });
+            }
+
+            var host = builder.Build();
+
+            if (isConsoleMode)
+            {
+                Console.WriteLine("Press Ctrl+C to stop...\n");
+            }
+
+            await host.RunAsync();
+        }
+
+        static void ShowHelp()
+        {
+            Console.WriteLine("===========================================");
+            Console.WriteLine("   ZKTeco K40 Real-Time Log Monitor");
+            Console.WriteLine("   Multi-Device Edition");
+            Console.WriteLine("===========================================");
+            Console.WriteLine();
+            Console.WriteLine("Usage: ZKTecoRealTimeLog [options]");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  --console, -c   Run in console mode (interactive)");
+            Console.WriteLine("  --help, -h      Show this help message");
+            Console.WriteLine("  --db-types      Show supported database types");
+            Console.WriteLine();
+            Console.WriteLine("Windows Service Commands (run as Administrator):");
+            Console.WriteLine();
+            Console.WriteLine("  Install service:");
+            Console.WriteLine("    sc create \"ZKTeco Attendance\" binPath= \"C:\\path\\to\\ZKTecoRealTimeLog.exe\"");
+            Console.WriteLine();
+            Console.WriteLine("  Start service:");
+            Console.WriteLine("    sc start \"ZKTeco Attendance\"");
+            Console.WriteLine();
+            Console.WriteLine("  Stop service:");
+            Console.WriteLine("    sc stop \"ZKTeco Attendance\"");
+            Console.WriteLine();
+            Console.WriteLine("  Delete service:");
+            Console.WriteLine("    sc delete \"ZKTeco Attendance\"");
+            Console.WriteLine();
+            Console.WriteLine("  View service status:");
+            Console.WriteLine("    sc query \"ZKTeco Attendance\"");
+            Console.WriteLine();
+            Console.WriteLine("Multi-Device Configuration (.env file):");
+            Console.WriteLine();
+            Console.WriteLine("  # Device 1");
+            Console.WriteLine("  DEVICE_1_ENABLED=true");
+            Console.WriteLine("  DEVICE_1_NAME=Entrance");
+            Console.WriteLine("  DEVICE_1_IP=192.168.1.201");
+            Console.WriteLine("  DEVICE_1_PORT=4370");
+            Console.WriteLine();
+            Console.WriteLine("  # Device 2");
+            Console.WriteLine("  DEVICE_2_ENABLED=true");
+            Console.WriteLine("  DEVICE_2_NAME=Exit");
+            Console.WriteLine("  DEVICE_2_IP=192.168.1.202");
+            Console.WriteLine();
+            Console.WriteLine("  # Add more devices: DEVICE_3_*, DEVICE_4_*, etc. (up to 20)");
+            Console.WriteLine();
+            Console.WriteLine("Database Configuration:");
+            Console.WriteLine("  POSTGRES_ENABLED=true/false");
+            Console.WriteLine("  MYSQL_ENABLED=true/false");
+            Console.WriteLine("  SQLSERVER_ENABLED=true/false");
+            Console.WriteLine("  SQLITE_ENABLED=true/false");
+            Console.WriteLine("  ORACLE_ENABLED=true/false");
+            Console.WriteLine();
+            Console.WriteLine("Prerequisites:");
+            Console.WriteLine("  Register zkemkeeper.dll: regsvr32 zkemkeeper.dll (as Admin)");
+        }
+    }
+}

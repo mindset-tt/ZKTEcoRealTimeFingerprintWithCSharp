@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x86</PlatformTarget>
+    <RootNamespace>ZKTecoRealTimeLog</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Windows Service -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.0" />
+    <!-- PostgreSQL -->
+    <PackageReference Include="Npgsql" Version="8.0.5" />
+    <!-- MySQL / MariaDB -->
+    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <!-- SQL Server -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <!-- SQLite -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <!-- Oracle -->
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.6.0" />
+  </ItemGroup>
+
+</Project>
