@@ -30,7 +30,7 @@ namespace ZKTecoRealTimeLog
             {
                 // Run in console mode (interactive)
                 Console.WriteLine("===========================================");
-                Console.WriteLine("   ZKTeco K40 Real-Time Log Monitor");
+                Console.WriteLine("   ZKTeco Real-Time Attendance Monitor");
                 Console.WriteLine("   Console Mode");
                 Console.WriteLine("===========================================");
                 Console.WriteLine();
@@ -49,7 +49,7 @@ namespace ZKTecoRealTimeLog
             }
             else
             {
-                // Service mode: log to Windows Event Log
+                // Service mode: log to both Event Log and Console (for file capture)
                 builder.Logging.AddEventLog(new EventLogSettings
                 {
                     SourceName = "ZKTeco Attendance",
@@ -83,8 +83,8 @@ namespace ZKTecoRealTimeLog
         static void ShowHelp()
         {
             Console.WriteLine("===========================================");
-            Console.WriteLine("   ZKTeco K40 Real-Time Log Monitor");
-            Console.WriteLine("   Multi-Device Edition");
+            Console.WriteLine("   ZKTeco Real-Time Attendance Monitor");
+            Console.WriteLine("   Multi-Device Edition v2.0");
             Console.WriteLine("===========================================");
             Console.WriteLine();
             Console.WriteLine("Usage: ZKTecoRealTimeLog [options]");
@@ -132,6 +132,11 @@ namespace ZKTecoRealTimeLog
             Console.WriteLine("  SQLSERVER_ENABLED=true/false");
             Console.WriteLine("  SQLITE_ENABLED=true/false");
             Console.WriteLine("  ORACLE_ENABLED=true/false");
+            Console.WriteLine();
+            Console.WriteLine("Supported Platforms:");
+            Console.WriteLine("  x86 (32-bit) - Default, required for standard zkemkeeper.dll");
+            Console.WriteLine("  x64 (64-bit) - Requires 64-bit zkemkeeper.dll from ZKTeco");
+            Console.WriteLine("  ARM64        - Requires ARM64 zkemkeeper.dll from ZKTeco");
             Console.WriteLine();
             Console.WriteLine("Prerequisites:");
             Console.WriteLine("  Register zkemkeeper.dll: regsvr32 zkemkeeper.dll (as Admin)");

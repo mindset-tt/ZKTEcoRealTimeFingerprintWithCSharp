@@ -1,6 +1,7 @@
 # .NET Build outputs
 bin/
 obj/
+publish/
 
 # User-specific files
 *.user
@@ -32,3 +33,22 @@ logs/
 
 # Windows
 Thumbs.db
+
+# WiX build artifacts
+*.wixpdb
+*.wixobj
+
+# Build tools output
+dist/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# NuGet
+packages/
+*.nupkg
+
+# Test results
+TestResults/

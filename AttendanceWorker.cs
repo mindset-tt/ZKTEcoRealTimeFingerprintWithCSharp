@@ -36,16 +36,29 @@ namespace ZKTecoRealTimeLog
                 // Load .env file
                 LoadEnvFile();
 
-                // Initialize file logger
+                // Initialize file logger - ALWAYS enabled for both console and service mode
                 string logFilePath = Environment.GetEnvironmentVariable("LOG_FILE_PATH") ?? "";
                 _fileLogger = new FileLogger(string.IsNullOrWhiteSpace(logFilePath) ? null : logFilePath);
-                if (_fileLogger.IsEnabled)
+                
+                // Log startup info to file
+                _fileLogger?.LogInfo("===========================================");
+                _fileLogger?.LogInfo("ZKTeco Attendance Service Starting");
+                _fileLogger?.LogInfo($"Version: 2.0.0");
+                _fileLogger?.LogInfo($"Base Directory: {AppContext.BaseDirectory}");
+                _fileLogger?.LogInfo("===========================================");
+                
+                if (_fileLogger?.IsEnabled == true)
                 {
                     _logger.LogInformation("Log file: {LogPath}", _fileLogger.LogFilePath);
+                }
+                else
+                {
+                    _logger.LogWarning("File logging is disabled or failed to initialize");
                 }
 
                 // Initialize databases
                 _logger.LogInformation("Initializing databases...");
+                _fileLogger?.LogInfo("Initializing databases...");
                 _databases = new MultiDatabaseManager();
                 
                 try
