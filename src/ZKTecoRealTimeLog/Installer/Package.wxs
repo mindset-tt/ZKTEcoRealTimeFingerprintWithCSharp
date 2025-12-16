@@ -1,0 +1,208 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="ZKTeco Attendance" 
+           Version="2.0.0.0" 
+           Manufacturer="Mlfts"
+           UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+           Language="1033"
+           Codepage="1252"
+           Scope="perMachine">
+
+    <SummaryInformation Description="ZKTeco Real-Time Attendance Monitor"
+                        Keywords="ZKTeco, Attendance, Fingerprint"
+                        Manufacturer="Mlfts" />
+
+    <!-- Icon -->
+    <Icon Id="AppIcon" SourceFile="$(var.ProjectDir)\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <!-- Upgrade handling -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    
+    <!-- Installation directory -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+
+    <!-- .NET Runtime Check -->
+    <Property Id="DOTNET_RUNTIME_INSTALLED">
+      <RegistrySearch Id="DotNetRuntimeSearch" 
+                      Root="HKLM" 
+                      Key="SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedhost"
+                      Name="Version"
+                      Type="raw" />
+    </Property>
+
+    <!-- Media -->
+    <Media Id="1" Cabinet="ZKTecoAttendance.cab" EmbedCab="yes" />
+
+    <!-- Directory Structure -->
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="ZKTeco Attendance">
+        <Directory Id="LogsFolder" Name="logs" />
+        <Directory Id="DataFolder" Name="data" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Program Menu Shortcuts -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="ZKTeco Attendance" />
+    </StandardDirectory>
+
+    <!-- Desktop Shortcut -->
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- Components -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      
+      <!-- Main Executable -->
+      <Component Id="MainExecutable" Guid="11111111-1111-1111-1111-111111111111">
+        <File Id="ZKTecoRealTimeLog.exe" 
+              Source="$(var.PublishDir)\ZKTecoRealTimeLog.exe" 
+              KeyPath="yes" />
+        
+        <!-- Windows Service Registration -->
+        <ServiceInstall Id="ZKTecoService"
+                        Name="ZKTecoAttendance"
+                        DisplayName="ZKTeco Attendance Service"
+                        Description="Real-time attendance monitoring for ZKTeco fingerprint devices"
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="LocalSystem" />
+        
+        <ServiceControl Id="StartZKTecoService"
+                        Name="ZKTecoAttendance"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+
+      <!-- Configuration File -->
+      <Component Id="ConfigFile" Guid="22222222-2222-2222-2222-222222222222">
+        <File Id="env.example" 
+              Source="$(var.ProjectDir)\.env.example" 
+              Name=".env.example" />
+        
+        <!-- Copy .env.example to .env if .env doesn't exist -->
+        <CopyFile Id="CopyEnvFile" 
+                  FileId="env.example" 
+                  DestinationName=".env" 
+                  DestinationDirectory="INSTALLFOLDER" />
+      </Component>
+
+      <!-- README -->
+      <Component Id="ReadmeFile" Guid="33333333-3333-3333-3333-333333333333">
+        <File Id="README.md" 
+              Source="$(var.ProjectDir)\..\..\docs\README.md" />
+      </Component>
+
+      <!-- ZKTeco SDK DLL -->
+      <Component Id="ZKemkeeperDll" Guid="44444444-4444-4444-4444-444444444444">
+        <File Id="zkemkeeper.dll" 
+              Source="$(var.PublishDir)\zkemkeeper.dll" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Install SDK Script -->
+      <Component Id="InstallSDKScript" Guid="99999999-9999-9999-9999-999999999999">
+        <File Id="InstallSDK.bat" 
+              Source="$(var.ProjectDir)\InstallSDK.bat" />
+      </Component>
+
+      <!-- Create logs folder -->
+      <Component Id="LogsFolderComponent" Guid="55555555-5555-5555-5555-555555555555" Directory="LogsFolder">
+        <CreateFolder />
+        <util:RemoveFolderEx On="uninstall" Property="LogsFolder" />
+      </Component>
+
+      <!-- Create data folder -->
+      <Component Id="DataFolderComponent" Guid="66666666-6666-6666-6666-666666666666" Directory="DataFolder">
+        <CreateFolder />
+        <util:RemoveFolderEx On="uninstall" Property="DataFolder" />
+      </Component>
+
+    </ComponentGroup>
+
+    <!-- Shortcuts -->
+    <ComponentGroup Id="ShortcutComponents" Directory="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcuts" Guid="77777777-7777-7777-7777-777777777777">
+        
+        <!-- Start Menu - Console Mode -->
+        <Shortcut Id="ConsoleShortcut"
+                  Name="ZKTeco Attendance (Console)"
+                  Description="Run ZKTeco Attendance in console mode"
+                  Target="[INSTALLFOLDER]ZKTecoRealTimeLog.exe"
+                  Arguments="--console"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        
+        <!-- Start Menu - Config File -->
+        <Shortcut Id="ConfigShortcut"
+                  Name="Edit Configuration"
+                  Description="Edit ZKTeco Attendance configuration"
+                  Target="[SystemFolder]notepad.exe"
+                  Arguments="[INSTALLFOLDER].env"
+                  WorkingDirectory="INSTALLFOLDER" />
+        
+        <!-- Start Menu - Logs Folder -->
+        <Shortcut Id="LogsShortcut"
+                  Name="View Logs"
+                  Description="Open logs folder"
+                  Target="[WindowsFolder]explorer.exe"
+                  Arguments="[INSTALLFOLDER]logs"
+                  WorkingDirectory="INSTALLFOLDER" />
+
+        <!-- Uninstall Shortcut -->
+        <Shortcut Id="UninstallShortcut"
+                  Name="Uninstall ZKTeco Attendance"
+                  Target="[SystemFolder]msiexec.exe"
+                  Arguments="/x [ProductCode]" />
+
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\Mlfts\ZKTecoAttendance" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Desktop Shortcut -->
+    <ComponentGroup Id="DesktopShortcutComponents" Directory="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="88888888-8888-8888-8888-888888888888">
+        <Shortcut Id="DesktopConsoleShortcut"
+                  Name="ZKTeco Attendance"
+                  Description="Run ZKTeco Attendance in console mode"
+                  Target="[INSTALLFOLDER]ZKTecoRealTimeLog.exe"
+                  Arguments="--console"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU" Key="Software\Mlfts\ZKTecoAttendance" Name="desktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Feature Definition -->
+    <Feature Id="ProductFeature" Title="ZKTeco Attendance" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+      <ComponentGroupRef Id="DesktopShortcutComponents" />
+    </Feature>
+
+    <!-- Custom Action to Run SDK Installer -->
+    <CustomAction Id="RunInstallSDK" 
+                  FileRef="InstallSDK.bat" 
+                  ExeCommand="" 
+                  Execute="deferred" 
+                  Return="check" 
+                  Impersonate="no" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RunInstallSDK" After="InstallFiles" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+
+    <!-- UI -->
+    <ui:WixUI Id="WixUI_InstallDir" />
+
+    <!-- License -->
+    <!-- License -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\..\..\docs\License.rtf" />
+
+  </Package>
+</Wix>

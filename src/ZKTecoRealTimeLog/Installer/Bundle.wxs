@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:netfx="http://wixtoolset.org/schemas/v4/wxs/netfx">
+
+  <!-- Bundle for bootstrapper with .NET Runtime -->
+  <Bundle Name="ZKTeco Attendance"
+          Version="2.0.0.0"
+          Manufacturer="Mlfts"
+          UpgradeCode="B1C2D3E4-F5A6-7890-BCDE-F12345678901"
+          Copyright="Copyright (c) 2025 Mlfts">
+
+    <BootstrapperApplication>
+      <BootstrapperApplicationRef Id="WixStandardBootstrapperApplication.RtfLicense">
+        <bal:WixStandardBootstrapperApplication 
+          xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal"
+          LicenseFile="$(var.ProjectDir)\License.rtf"
+          Theme="hyperlinkLicense"
+          LogoFile="$(var.ProjectDir)\Installer\logo.png"
+          ShowVersion="yes" />
+      </BootstrapperApplicationRef>
+    </BootstrapperApplication>
+
+    <Chain>
+      <!-- .NET 9.0 Desktop Runtime (x86) -->
+      <ExePackage Id="DotNet9DesktopRuntime"
+                  Name="Microsoft .NET 9.0 Desktop Runtime (x86)"
+                  SourceFile="$(var.ProjectDir)\Installer\windowsdesktop-runtime-9.0.0-win-x86.exe"
+                  DownloadUrl="https://download.visualstudio.microsoft.com/download/pr/dotnet-runtime-9.0-win-x86.exe"
+                  InstallCommand="/install /quiet /norestart"
+                  RepairCommand="/repair /quiet /norestart"
+                  UninstallCommand="/uninstall /quiet /norestart"
+                  PerMachine="yes"
+                  Vital="yes"
+                  Permanent="yes">
+        
+        <ExePackagePayload SourceFile="$(var.ProjectDir)\Installer\windowsdesktop-runtime-9.0.0-win-x86.exe"
+                           DownloadUrl="https://download.visualstudio.microsoft.com/download/pr/dotnet-runtime-9.0-win-x86.exe" />
+        
+        <!-- Skip if .NET is already installed -->
+        <bal:Condition xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal"
+                       Condition="NOT NETRUNTIME90_X86" />
+      </ExePackage>
+
+      <!-- Main Application MSI -->
+      <MsiPackage Id="ZKTecoAttendanceMsi"
+                  SourceFile="$(var.ProjectDir)\dist\ZKTecoAttendance-Setup.msi"
+                  Vital="yes" />
+    </Chain>
+
+  </Bundle>
+</Wix>
