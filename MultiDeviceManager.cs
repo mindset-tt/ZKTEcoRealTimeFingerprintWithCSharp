@@ -41,6 +41,9 @@ namespace ZKTecoRealTimeLog
         {
             try
             {
+                // Ensure any previous instance is cleaned up
+                Disconnect();
+
                 // Create COM object dynamically
                 Type? zkType = Type.GetTypeFromProgID("zkemkeeper.ZKEM.1");
                 if (zkType == null)
@@ -73,7 +76,10 @@ namespace ZKTecoRealTimeLog
                     RegisterEvents();
 
                     // Enable real-time monitoring
-                    _zkDevice.RegEvent(_machineNumber, 65535);
+                    if (_zkDevice.RegEvent(_machineNumber, 65535))
+                    {
+                         // Success
+                    }
 
                     return true;
                 }
@@ -88,15 +94,47 @@ namespace ZKTecoRealTimeLog
 
         public void Disconnect()
         {
-            if (_isConnected && _zkDevice != null)
+            if (_zkDevice != null)
             {
                 try
                 {
-                    _zkDevice!.Disconnect();
+                    _zkDevice.Disconnect();
                 }
                 catch { }
-                _isConnected = false;
+
+                try
+                {
+                    // Release COM object to prevent memory leaks
+                    System.Runtime.InteropServices.Marshal.FinalReleaseComObject(_zkDevice);
+                }
+                catch { }
+                
+                _zkDevice = null;
             }
+            _isConnected = false;
+        }
+
+        public bool Ping()
+        {
+            if (!_isConnected || _zkDevice == null) return false;
+
+            try
+            {
+                int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+                // Reading device time is a lightweight way to check connection
+                return _zkDevice.GetDeviceTime(_machineNumber, ref year, ref month, ref day, ref hour, ref minute, ref second);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public bool Reconnect()
+        {
+            Disconnect();
+            Thread.Sleep(1000); // Wait a bit before reconnecting
+            return Connect();
         }
 
         public DeviceInfo? GetDeviceInfo()
@@ -463,6 +501,9 @@ namespace ZKTecoRealTimeLog
         /// <summary>
         /// Read all logs from all devices
         /// </summary>
+        /// <summary>
+        /// Read all logs from all devices
+        /// </summary>
         public List<AttendanceLog> ReadAllLogs()
         {
             var allLogs = new List<AttendanceLog>();
@@ -470,11 +511,51 @@ namespace ZKTecoRealTimeLog
             {
                 foreach (var device in _devices)
                 {
-                    var logs = device.ReadAllLogs();
-                    allLogs.AddRange(logs);
+                    if (device.IsConnected)
+                    {
+                        var logs = device.ReadAllLogs();
+                        allLogs.AddRange(logs);
+                    }
                 }
             }
             return allLogs;
+        }
+
+        /// <summary>
+        /// Mantain connections: Reconnect if dropped, Ping if connected
+        /// </summary>
+        public void MaintainConnections()
+        {
+            lock (_lock)
+            {
+                foreach (var device in _devices)
+                {
+                    if (!device.IsConnected)
+                    {
+                        Console.WriteLine($"[Watchdog] Attempting to reconnect {device.Name}...");
+                        if (device.Connect())
+                        {
+                            Console.WriteLine($"[Watchdog] Reconnected {device.Name}!");
+                        }
+                    }
+                    else
+                    {
+                         // It thinks it's connected, let's verify
+                         if (!device.Ping())
+                         {
+                             Console.WriteLine($"[Watchdog] Connection lost to {device.Name}. Reconnecting...");
+                             if (device.Reconnect())
+                             {
+                                 Console.WriteLine($"[Watchdog] Reconnected {device.Name}!");
+                             }
+                             else
+                             {
+                                 Console.WriteLine($"[Watchdog] Failed to reconnect {device.Name}.");
+                             }
+                         }
+                    }
+                }
+            }
         }
 
         /// <summary>

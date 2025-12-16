@@ -11,7 +11,7 @@ namespace ZKTecoRealTimeLog
         private StreamWriter? _writer;
         private readonly bool _enabled;
 
-        public FileLogger(string? logFilePath = null)
+        public FileLogger(string? logFilePath = null, bool append = false)
         {
             // Default log path
             if (string.IsNullOrWhiteSpace(logFilePath))
@@ -34,11 +34,25 @@ namespace ZKTecoRealTimeLog
 
             try
             {
-                _writer = new StreamWriter(_logFilePath, append: true, encoding: Encoding.UTF8)
+                // Open with FileShare.ReadWrite to allow other programs (like Notepad) to read it while open
+                var fileStream = new FileStream(_logFilePath, 
+                    append ? FileMode.Append : FileMode.Create, 
+                    FileAccess.Write, 
+                    FileShare.ReadWrite);
+
+                _writer = new StreamWriter(fileStream, Encoding.UTF8)
                 {
                     AutoFlush = true
                 };
-                Log("INFO", "File logger initialized");
+
+                if (!append)
+                {
+                    Log("INFO", "File logger initialized (New Session)");
+                }
+                else
+                {
+                    Log("INFO", "File logger attached (Appending)");
+                }
             }
             catch (Exception ex)
             {

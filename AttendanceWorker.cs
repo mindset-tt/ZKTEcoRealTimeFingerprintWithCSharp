@@ -38,7 +38,8 @@ namespace ZKTecoRealTimeLog
 
                 // Initialize file logger - ALWAYS enabled for both console and service mode
                 string logFilePath = Environment.GetEnvironmentVariable("LOG_FILE_PATH") ?? "";
-                _fileLogger = new FileLogger(string.IsNullOrWhiteSpace(logFilePath) ? null : logFilePath);
+                // overwrite = true (append = false), as requested by user ("log will be gone out")
+                _fileLogger = new FileLogger(string.IsNullOrWhiteSpace(logFilePath) ? null : logFilePath, append: false);
                 
                 // Log startup info to file
                 _fileLogger?.LogInfo("===========================================");
@@ -167,7 +168,20 @@ namespace ZKTecoRealTimeLog
                 // Keep running until cancellation requested
                 while (!stoppingToken.IsCancellationRequested)
                 {
-                    await Task.Delay(1000, stoppingToken);
+                    // Watchdog: Check connections every 30 seconds
+                    if (_deviceManager != null)
+                    {
+                        try
+                        {
+                            _deviceManager.MaintainConnections();
+                        }
+                        catch (Exception wdEx)
+                        {
+                            _logger.LogError(wdEx, "Watchdog error: {Message}", wdEx.Message);
+                        }
+                    }
+                    
+                    await Task.Delay(30000, stoppingToken); // Check every 30 seconds
                 }
             }
             catch (OperationCanceledException)
