@@ -9,11 +9,17 @@ namespace ZKTecoRealTimeLog.Database
     /// </summary>
     public class OracleProvider : IDatabaseProvider
     {
+        #region Fields & Properties
+
         private readonly string _connectionString;
         private readonly bool _enabled;
 
         public string ProviderName => "Oracle";
         public bool IsEnabled => _enabled;
+
+        #endregion
+
+        #region Constructor
 
         public OracleProvider(DatabaseConfig config)
         {
@@ -30,6 +36,10 @@ namespace ZKTecoRealTimeLog.Database
                 _connectionString = $"Data Source={config.Host}:{port}/{config.Database};User Id={config.User};Password={config.Password};";
             }
         }
+
+        #endregion
+
+        #region IDatabaseProvider Implementation
 
         public async Task<bool> TestConnectionAsync()
         {
@@ -138,9 +148,16 @@ namespace ZKTecoRealTimeLog.Database
             }
         }
 
+        #endregion
+
+        #region IDisposable
+
         public void Dispose()
         {
             // OracleConnection doesn't need explicit disposal at provider level
         }
+
+        #endregion
     }
 }
+

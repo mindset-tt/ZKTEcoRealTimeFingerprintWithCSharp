@@ -9,11 +9,17 @@ namespace ZKTecoRealTimeLog.Database
     /// </summary>
     public class MySqlProvider : IDatabaseProvider
     {
+        #region Fields & Properties
+
         private readonly string _connectionString;
         private readonly bool _enabled;
 
         public string ProviderName => "MySQL";
         public bool IsEnabled => _enabled;
+
+        #endregion
+
+        #region Constructor
 
         public MySqlProvider(DatabaseConfig config)
         {
@@ -28,6 +34,10 @@ namespace ZKTecoRealTimeLog.Database
                 _connectionString = $"Server={config.Host};Port={config.Port};Database={config.Database};User={config.User};Password={config.Password};";
             }
         }
+
+        #endregion
+
+        #region IDatabaseProvider Implementation
 
         public async Task<bool> TestConnectionAsync()
         {
@@ -123,9 +133,16 @@ namespace ZKTecoRealTimeLog.Database
             }
         }
 
+        #endregion
+
+        #region IDisposable
+
         public void Dispose()
         {
             // MySqlConnection doesn't need explicit disposal at provider level
         }
+
+        #endregion
     }
 }
+

@@ -6,11 +6,15 @@ using ZKTecoRealTimeLog.Database;
 
 namespace ZKTecoRealTimeLog
 {
+    #region ZKDevice
+
     /// <summary>
     /// Represents a single ZKTeco device connection
     /// </summary>
     public class ZKDevice : IDisposable
     {
+        #region Fields & Properties
+
         private dynamic? _zkDevice;
         private bool _isConnected = false;
         private readonly int _machineNumber = 1;
@@ -30,12 +34,20 @@ namespace ZKTecoRealTimeLog
         public event Action<ZKDevice, int>? OnNewUser;
         public event Action<ZKDevice>? OnDisconnected;
 
+        #endregion
+
+        #region Constructor
+
         public ZKDevice(string name, string ip, int port = 4370)
         {
             Name = name;
             IP = ip;
             Port = port;
         }
+
+        #endregion
+
+        #region Connection
 
         public bool Connect()
         {
@@ -76,10 +88,7 @@ namespace ZKTecoRealTimeLog
                     RegisterEvents();
 
                     // Enable real-time monitoring
-                    if (_zkDevice.RegEvent(_machineNumber, 65535))
-                    {
-                         // Success
-                    }
+                    _zkDevice.RegEvent(_machineNumber, 65535);
 
                     return true;
                 }
@@ -136,6 +145,10 @@ namespace ZKTecoRealTimeLog
             Thread.Sleep(1000); // Wait a bit before reconnecting
             return Connect();
         }
+
+        #endregion
+
+        #region Device Info
 
         public DeviceInfo? GetDeviceInfo()
         {
@@ -209,6 +222,10 @@ namespace ZKTecoRealTimeLog
             return logs;
         }
 
+        #endregion
+
+        #region Events
+
         private void RegisterEvents()
         {
             if (_zkDevice == null) return;
@@ -267,13 +284,23 @@ namespace ZKTecoRealTimeLog
             catch { }
         }
 
+        #endregion
+
+        #region IDisposable
+
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
             Disconnect();
         }
+
+        #endregion
     }
+
+    #endregion
+
+    #region Models
 
     /// <summary>
     /// Attendance event arguments
@@ -354,11 +381,17 @@ namespace ZKTecoRealTimeLog
         public bool Enabled { get; set; } = false;
     }
 
+    #endregion
+
+    #region MultiDeviceManager
+
     /// <summary>
     /// Manages multiple ZKTeco device connections
     /// </summary>
     public class MultiDeviceManager : IDisposable
     {
+        #region Fields & Properties
+
         private readonly List<ZKDevice> _devices = new();
         private readonly object _lock = new object();
         private bool _disposed = false;
@@ -377,11 +410,19 @@ namespace ZKTecoRealTimeLog
         // Log event for internal messages
         public event Action<string>? OnLog;
 
+        #endregion
+
+        #region Private Helpers
+
         private void Log(string message)
         {
             OnLog?.Invoke(message);
             Console.WriteLine(message);
         }
+
+        #endregion
+
+        #region Configuration
 
         /// <summary>
         /// Load device configurations from environment variables
@@ -431,6 +472,10 @@ namespace ZKTecoRealTimeLog
 
             return configs;
         }
+
+        #endregion
+
+        #region Connection Management
 
         /// <summary>
         /// Connect to all configured devices
@@ -510,9 +555,6 @@ namespace ZKTecoRealTimeLog
         /// <summary>
         /// Read all logs from all devices
         /// </summary>
-        /// <summary>
-        /// Read all logs from all devices
-        /// </summary>
         public List<AttendanceLog> ReadAllLogs()
         {
             var allLogs = new List<AttendanceLog>();
@@ -530,8 +572,12 @@ namespace ZKTecoRealTimeLog
             return allLogs;
         }
 
+        #endregion
+
+        #region Watchdog
+
         /// <summary>
-        /// Mantain connections: Reconnect if dropped, Ping if connected
+        /// Maintain connections: Reconnect if dropped, Ping if connected
         /// </summary>
         public void MaintainConnections()
         {
@@ -585,6 +631,10 @@ namespace ZKTecoRealTimeLog
             }
         }
 
+        #endregion
+
+        #region IDisposable
+
         public void Dispose()
         {
             if (_disposed) return;
@@ -599,5 +649,10 @@ namespace ZKTecoRealTimeLog
                 _devices.Clear();
             }
         }
+
+        #endregion
     }
+
+    #endregion
 }
+

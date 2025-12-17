@@ -14,15 +14,25 @@ namespace ZKTecoRealTimeLog
     /// </summary>
     public class AttendanceWorker : BackgroundService
     {
+        #region Fields
+
         private readonly ILogger<AttendanceWorker> _logger;
         private MultiDeviceManager? _deviceManager;
         private MultiDatabaseManager? _databases;
         private FileLogger? _fileLogger;
 
+        #endregion
+
+        #region Constructor
+
         public AttendanceWorker(ILogger<AttendanceWorker> logger)
         {
             _logger = logger;
         }
+
+        #endregion
+
+        #region Service Lifecycle
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -139,7 +149,6 @@ namespace ZKTecoRealTimeLog
                     _deviceManager.OnVerify += HandleVerify;
                     _deviceManager.OnCard += HandleCard;
                     _deviceManager.OnNewUser += HandleNewUser;
-                    _deviceManager.OnNewUser += HandleNewUser;
                     _deviceManager.OnDisconnected += HandleDisconnected;
                     
                     // Capture internal logs (Watchdog, Connections)
@@ -148,8 +157,6 @@ namespace ZKTecoRealTimeLog
                         _logger.LogInformation("{Message}", msg);
                         _fileLogger?.LogInfo(msg);
                     };
-
-                    // Connect to all devices
 
                     // Connect to all devices
                     _deviceManager.ConnectAll(deviceConfigs);
@@ -223,6 +230,12 @@ namespace ZKTecoRealTimeLog
             }
         }
 
+        public override async Task StopAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Stop requested...");
+            await base.StopAsync(cancellationToken);
+        }
+
         private async Task Cleanup()
         {
             _logger.LogInformation("Service stopping...");
@@ -241,11 +254,9 @@ namespace ZKTecoRealTimeLog
             await Task.CompletedTask;
         }
 
-        public override async Task StopAsync(CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("Stop requested...");
-            await base.StopAsync(cancellationToken);
-        }
+        #endregion
+
+        #region Event Handlers
 
         private void HandleAttendanceEvent(ZKDevice device, AttendanceEventArgs args)
         {
@@ -325,6 +336,10 @@ namespace ZKTecoRealTimeLog
             _fileLogger?.LogWarning($"[{device.Name}] Device disconnected");
         }
 
+        #endregion
+
+        #region Helpers
+
         private void LoadEnvFile()
         {
             string envPath = Path.Combine(AppContext.BaseDirectory, ".env");
@@ -362,5 +377,8 @@ namespace ZKTecoRealTimeLog
                 }
             }
         }
+
+        #endregion
     }
 }
+

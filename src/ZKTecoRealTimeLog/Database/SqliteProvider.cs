@@ -10,11 +10,17 @@ namespace ZKTecoRealTimeLog.Database
     /// </summary>
     public class SqliteProvider : IDatabaseProvider
     {
+        #region Fields & Properties
+
         private readonly string _connectionString;
         private readonly bool _enabled;
 
         public string ProviderName => "SQLite";
         public bool IsEnabled => _enabled;
+
+        #endregion
+
+        #region Constructor
 
         public SqliteProvider(DatabaseConfig config)
         {
@@ -38,6 +44,10 @@ namespace ZKTecoRealTimeLog.Database
                 _connectionString = $"Data Source={dbPath}";
             }
         }
+
+        #endregion
+
+        #region IDatabaseProvider Implementation
 
         public async Task<bool> TestConnectionAsync()
         {
@@ -147,9 +157,16 @@ namespace ZKTecoRealTimeLog.Database
             }
         }
 
+        #endregion
+
+        #region IDisposable
+
         public void Dispose()
         {
             // SqliteConnection doesn't need explicit disposal at provider level
         }
+
+        #endregion
     }
 }
+

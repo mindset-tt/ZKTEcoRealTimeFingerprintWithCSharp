@@ -7,6 +7,8 @@ namespace ZKTecoRealTimeLog.Database
     /// </summary>
     public static class DatabaseFactory
     {
+        #region Constants
+
         /// <summary>
         /// Supported database types
         /// </summary>
@@ -19,6 +21,10 @@ namespace ZKTecoRealTimeLog.Database
             "oracle",
             "none"
         };
+
+        #endregion
+
+        #region Factory Methods
 
         /// <summary>
         /// Create a database provider based on configuration
@@ -40,6 +46,10 @@ namespace ZKTecoRealTimeLog.Database
                 _ => throw new ArgumentException($"Unsupported database type: {config.Type}. Supported types: {string.Join(", ", SupportedDatabases)}")
             };
         }
+
+        #endregion
+
+        #region Helpers
 
         /// <summary>
         /// Get the default port for a database type
@@ -69,5 +79,8 @@ namespace ZKTecoRealTimeLog.Database
             Console.WriteLine("  oracle - Port 1521");
             Console.WriteLine("  none - Disable database logging");
         }
+
+        #endregion
     }
 }
+

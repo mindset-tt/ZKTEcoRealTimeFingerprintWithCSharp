@@ -4,16 +4,28 @@ using System.Threading.Tasks;
 
 namespace ZKTecoRealTimeLog.Database
 {
+    #region MultiDatabaseManager
+
     /// <summary>
     /// Manages multiple database connections simultaneously
     /// </summary>
     public class MultiDatabaseManager : IDisposable
     {
+        #region Fields & Properties
+
         private readonly List<IDatabaseProvider> _providers = new();
         private readonly List<string> _enabledDatabases = new();
         private bool _disposed;
 
         public event Action<string>? OnLog;
+
+        public IReadOnlyList<IDatabaseProvider> Providers => _providers;
+        public IReadOnlyList<string> EnabledDatabaseNames => _enabledDatabases;
+        public int ActiveCount => _providers.Count;
+
+        #endregion
+
+        #region Private Methods
 
         private void Log(string message, bool isError = false)
         {
@@ -21,23 +33,6 @@ namespace ZKTecoRealTimeLog.Database
             if (isError) Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(message);
             if (isError) Console.ResetColor();
-        }
-
-        public IReadOnlyList<IDatabaseProvider> Providers => _providers;
-        public IReadOnlyList<string> EnabledDatabaseNames => _enabledDatabases;
-        public int ActiveCount => _providers.Count;
-
-        /// <summary>
-        /// Initialize all enabled databases from environment configuration
-        /// </summary>
-        public async Task InitializeFromEnvironmentAsync()
-        {
-            // Check each database type for individual enable flags
-            await TryAddDatabaseAsync("postgresql", new PostgresDatabaseConfig());
-            await TryAddDatabaseAsync("mysql", new MySqlDatabaseConfig());
-            await TryAddDatabaseAsync("sqlserver", new SqlServerDatabaseConfig());
-            await TryAddDatabaseAsync("sqlite", new SqliteDatabaseConfig());
-            await TryAddDatabaseAsync("oracle", new OracleDatabaseConfig());
         }
 
         private async Task TryAddDatabaseAsync(string typeName, IndividualDatabaseConfig config)
@@ -75,32 +70,6 @@ namespace ZKTecoRealTimeLog.Database
             }
         }
 
-        /// <summary>
-        /// Insert attendance log to all connected databases
-        /// </summary>
-        public async Task InsertAttendanceLogAsync(
-            string enrollNumber,
-            DateTime eventTime,
-            bool isValid,
-            int attState,
-            string attStateDesc,
-            int verifyMethod,
-            string verifyMethodDesc,
-            int workCode,
-            string? deviceIp = null,
-            string? deviceName = null)
-        {
-            var tasks = new List<Task>();
-            
-            foreach (var provider in _providers)
-            {
-                tasks.Add(SafeInsertAsync(provider, enrollNumber, eventTime, isValid, 
-                    attState, attStateDesc, verifyMethod, verifyMethodDesc, workCode, deviceIp, deviceName));
-            }
-
-            await Task.WhenAll(tasks);
-        }
-
         private async Task SafeInsertAsync(
             IDatabaseProvider provider,
             string enrollNumber,
@@ -125,6 +94,48 @@ namespace ZKTecoRealTimeLog.Database
                 Log($"  Warning: Failed to insert to {provider.ProviderName}: {ex.Message}");
                 Console.ResetColor();
             }
+        }
+
+        #endregion
+
+        #region Public Methods
+
+        /// <summary>
+        /// Initialize all enabled databases from environment configuration
+        /// </summary>
+        public async Task InitializeFromEnvironmentAsync()
+        {
+            await TryAddDatabaseAsync("postgresql", new PostgresDatabaseConfig());
+            await TryAddDatabaseAsync("mysql", new MySqlDatabaseConfig());
+            await TryAddDatabaseAsync("sqlserver", new SqlServerDatabaseConfig());
+            await TryAddDatabaseAsync("sqlite", new SqliteDatabaseConfig());
+            await TryAddDatabaseAsync("oracle", new OracleDatabaseConfig());
+        }
+
+        /// <summary>
+        /// Insert attendance log to all connected databases
+        /// </summary>
+        public async Task InsertAttendanceLogAsync(
+            string enrollNumber,
+            DateTime eventTime,
+            bool isValid,
+            int attState,
+            string attStateDesc,
+            int verifyMethod,
+            string verifyMethodDesc,
+            int workCode,
+            string? deviceIp = null,
+            string? deviceName = null)
+        {
+            var tasks = new List<Task>();
+            
+            foreach (var provider in _providers)
+            {
+                tasks.Add(SafeInsertAsync(provider, enrollNumber, eventTime, isValid, 
+                    attState, attStateDesc, verifyMethod, verifyMethodDesc, workCode, deviceIp, deviceName));
+            }
+
+            await Task.WhenAll(tasks);
         }
 
         /// <summary>
@@ -161,13 +172,25 @@ namespace ZKTecoRealTimeLog.Database
             _providers.Clear();
             _enabledDatabases.Clear();
         }
+
+        #endregion
     }
+
+    #endregion
+
+    #region Database Configurations
 
     /// <summary>
     /// Base class for individual database configuration
     /// </summary>
     public abstract class IndividualDatabaseConfig
     {
+        protected static string Env(string key, string def = "") =>
+            Environment.GetEnvironmentVariable(key) ?? def;
+        
+        protected static bool EnvBool(string key, bool def = false) =>
+            (Environment.GetEnvironmentVariable(key)?.ToLower() ?? (def ? "true" : "false")) == "true";
+
         public abstract string Type { get; }
         public abstract bool Enabled { get; }
         public abstract string Host { get; }
@@ -201,17 +224,14 @@ namespace ZKTecoRealTimeLog.Database
     public class PostgresDatabaseConfig : IndividualDatabaseConfig
     {
         public override string Type => "postgresql";
-        public override bool Enabled => GetBool("POSTGRES_ENABLED", false);
-        public override string Host => Get("POSTGRES_HOST", "localhost");
-        public override string Port => Get("POSTGRES_PORT", "5432");
-        public override string Database => Get("POSTGRES_DATABASE", "zkteco");
-        public override string User => Get("POSTGRES_USER", "postgres");
-        public override string Password => Get("POSTGRES_PASSWORD", "");
-        public override string ConnectionString => Get("POSTGRES_CONNECTION_STRING", "");
+        public override bool Enabled => EnvBool("POSTGRES_ENABLED");
+        public override string Host => Env("POSTGRES_HOST", "localhost");
+        public override string Port => Env("POSTGRES_PORT", "5432");
+        public override string Database => Env("POSTGRES_DATABASE", "zkteco");
+        public override string User => Env("POSTGRES_USER", "postgres");
+        public override string Password => Env("POSTGRES_PASSWORD");
+        public override string ConnectionString => Env("POSTGRES_CONNECTION_STRING");
         public override string GetConnectionInfo() => $"{Host}:{Port}/{Database}";
-
-        private static string Get(string key, string def) => Environment.GetEnvironmentVariable(key) ?? def;
-        private static bool GetBool(string key, bool def) => (Environment.GetEnvironmentVariable(key)?.ToLower() ?? (def ? "true" : "false")) == "true";
     }
 
     /// <summary>
@@ -220,17 +240,14 @@ namespace ZKTecoRealTimeLog.Database
     public class MySqlDatabaseConfig : IndividualDatabaseConfig
     {
         public override string Type => "mysql";
-        public override bool Enabled => GetBool("MYSQL_ENABLED", false);
-        public override string Host => Get("MYSQL_HOST", "localhost");
-        public override string Port => Get("MYSQL_PORT", "3306");
-        public override string Database => Get("MYSQL_DATABASE", "zkteco");
-        public override string User => Get("MYSQL_USER", "root");
-        public override string Password => Get("MYSQL_PASSWORD", "");
-        public override string ConnectionString => Get("MYSQL_CONNECTION_STRING", "");
+        public override bool Enabled => EnvBool("MYSQL_ENABLED");
+        public override string Host => Env("MYSQL_HOST", "localhost");
+        public override string Port => Env("MYSQL_PORT", "3306");
+        public override string Database => Env("MYSQL_DATABASE", "zkteco");
+        public override string User => Env("MYSQL_USER", "root");
+        public override string Password => Env("MYSQL_PASSWORD");
+        public override string ConnectionString => Env("MYSQL_CONNECTION_STRING");
         public override string GetConnectionInfo() => $"{Host}:{Port}/{Database}";
-
-        private static string Get(string key, string def) => Environment.GetEnvironmentVariable(key) ?? def;
-        private static bool GetBool(string key, bool def) => (Environment.GetEnvironmentVariable(key)?.ToLower() ?? (def ? "true" : "false")) == "true";
     }
 
     /// <summary>
@@ -239,17 +256,14 @@ namespace ZKTecoRealTimeLog.Database
     public class SqlServerDatabaseConfig : IndividualDatabaseConfig
     {
         public override string Type => "sqlserver";
-        public override bool Enabled => GetBool("SQLSERVER_ENABLED", false);
-        public override string Host => Get("SQLSERVER_HOST", "localhost");
-        public override string Port => Get("SQLSERVER_PORT", "1433");
-        public override string Database => Get("SQLSERVER_DATABASE", "zkteco");
-        public override string User => Get("SQLSERVER_USER", "sa");
-        public override string Password => Get("SQLSERVER_PASSWORD", "");
-        public override string ConnectionString => Get("SQLSERVER_CONNECTION_STRING", "");
+        public override bool Enabled => EnvBool("SQLSERVER_ENABLED");
+        public override string Host => Env("SQLSERVER_HOST", "localhost");
+        public override string Port => Env("SQLSERVER_PORT", "1433");
+        public override string Database => Env("SQLSERVER_DATABASE", "zkteco");
+        public override string User => Env("SQLSERVER_USER", "sa");
+        public override string Password => Env("SQLSERVER_PASSWORD");
+        public override string ConnectionString => Env("SQLSERVER_CONNECTION_STRING");
         public override string GetConnectionInfo() => $"{Host}:{Port}/{Database}";
-
-        private static string Get(string key, string def) => Environment.GetEnvironmentVariable(key) ?? def;
-        private static bool GetBool(string key, bool def) => (Environment.GetEnvironmentVariable(key)?.ToLower() ?? (def ? "true" : "false")) == "true";
     }
 
     /// <summary>
@@ -258,17 +272,14 @@ namespace ZKTecoRealTimeLog.Database
     public class SqliteDatabaseConfig : IndividualDatabaseConfig
     {
         public override string Type => "sqlite";
-        public override bool Enabled => GetBool("SQLITE_ENABLED", false);
-        public override string Host => ""; // Not used
-        public override string Port => ""; // Not used
-        public override string Database => Get("SQLITE_DATABASE", "zkteco.db");
-        public override string User => ""; // Not used
-        public override string Password => ""; // Not used
-        public override string ConnectionString => Get("SQLITE_CONNECTION_STRING", "");
+        public override bool Enabled => EnvBool("SQLITE_ENABLED");
+        public override string Host => "";
+        public override string Port => "";
+        public override string Database => Env("SQLITE_DATABASE", "zkteco.db");
+        public override string User => "";
+        public override string Password => "";
+        public override string ConnectionString => Env("SQLITE_CONNECTION_STRING");
         public override string GetConnectionInfo() => Database;
-
-        private static string Get(string key, string def) => Environment.GetEnvironmentVariable(key) ?? def;
-        private static bool GetBool(string key, bool def) => (Environment.GetEnvironmentVariable(key)?.ToLower() ?? (def ? "true" : "false")) == "true";
     }
 
     /// <summary>
@@ -277,16 +288,16 @@ namespace ZKTecoRealTimeLog.Database
     public class OracleDatabaseConfig : IndividualDatabaseConfig
     {
         public override string Type => "oracle";
-        public override bool Enabled => GetBool("ORACLE_ENABLED", false);
-        public override string Host => Get("ORACLE_HOST", "localhost");
-        public override string Port => Get("ORACLE_PORT", "1521");
-        public override string Database => Get("ORACLE_DATABASE", "ORCL");
-        public override string User => Get("ORACLE_USER", "system");
-        public override string Password => Get("ORACLE_PASSWORD", "");
-        public override string ConnectionString => Get("ORACLE_CONNECTION_STRING", "");
+        public override bool Enabled => EnvBool("ORACLE_ENABLED");
+        public override string Host => Env("ORACLE_HOST", "localhost");
+        public override string Port => Env("ORACLE_PORT", "1521");
+        public override string Database => Env("ORACLE_DATABASE", "ORCL");
+        public override string User => Env("ORACLE_USER", "system");
+        public override string Password => Env("ORACLE_PASSWORD");
+        public override string ConnectionString => Env("ORACLE_CONNECTION_STRING");
         public override string GetConnectionInfo() => $"{Host}:{Port}/{Database}";
-
-        private static string Get(string key, string def) => Environment.GetEnvironmentVariable(key) ?? def;
-        private static bool GetBool(string key, bool def) => (Environment.GetEnvironmentVariable(key)?.ToLower() ?? (def ? "true" : "false")) == "true";
     }
+
+    #endregion
 }
+

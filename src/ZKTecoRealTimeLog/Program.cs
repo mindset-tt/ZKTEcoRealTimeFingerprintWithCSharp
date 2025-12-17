@@ -7,6 +7,8 @@ namespace ZKTecoRealTimeLog
 {
     class Program
     {
+        #region Entry Point
+
         static async Task Main(string[] args)
         {
             // Check for console mode
@@ -80,6 +82,10 @@ namespace ZKTecoRealTimeLog
             await host.RunAsync();
         }
 
+        #endregion
+
+        #region Help
+
         static void ShowHelp()
         {
             Console.WriteLine("===========================================");
@@ -141,5 +147,8 @@ namespace ZKTecoRealTimeLog
             Console.WriteLine("Prerequisites:");
             Console.WriteLine("  Register zkemkeeper.dll: regsvr32 zkemkeeper.dll (as Admin)");
         }
+
+        #endregion
     }
 }
+

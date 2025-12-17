@@ -9,12 +9,18 @@ namespace ZKTecoRealTimeLog.Database
     /// </summary>
     public class PostgreSqlProvider : IDatabaseProvider
     {
+        #region Fields & Properties
+
         private readonly string _connectionString;
         private readonly bool _enabled;
         private NpgsqlDataSource? _dataSource;
 
         public string ProviderName => "PostgreSQL";
         public bool IsEnabled => _enabled && _dataSource != null;
+
+        #endregion
+
+        #region Constructor
 
         public PostgreSqlProvider(DatabaseConfig config)
         {
@@ -42,6 +48,10 @@ namespace ZKTecoRealTimeLog.Database
                 }
             }
         }
+
+        #endregion
+
+        #region IDatabaseProvider Implementation
 
         public async Task<bool> TestConnectionAsync()
         {
@@ -149,9 +159,16 @@ namespace ZKTecoRealTimeLog.Database
             }
         }
 
+        #endregion
+
+        #region IDisposable
+
         public void Dispose()
         {
             _dataSource?.Dispose();
         }
+
+        #endregion
     }
 }
+

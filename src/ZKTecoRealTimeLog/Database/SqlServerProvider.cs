@@ -9,11 +9,17 @@ namespace ZKTecoRealTimeLog.Database
     /// </summary>
     public class SqlServerProvider : IDatabaseProvider
     {
+        #region Fields & Properties
+
         private readonly string _connectionString;
         private readonly bool _enabled;
 
         public string ProviderName => "SQL Server";
         public bool IsEnabled => _enabled;
+
+        #endregion
+
+        #region Constructor
 
         public SqlServerProvider(DatabaseConfig config)
         {
@@ -30,6 +36,10 @@ namespace ZKTecoRealTimeLog.Database
                 _connectionString = $"Server={config.Host},{port};Database={config.Database};User Id={config.User};Password={config.Password};TrustServerCertificate=True;";
             }
         }
+
+        #endregion
+
+        #region IDatabaseProvider Implementation
 
         public async Task<bool> TestConnectionAsync()
         {
@@ -129,9 +139,16 @@ namespace ZKTecoRealTimeLog.Database
             }
         }
 
+        #endregion
+
+        #region IDisposable
+
         public void Dispose()
         {
             // SqlConnection doesn't need explicit disposal at provider level
         }
+
+        #endregion
     }
 }
+

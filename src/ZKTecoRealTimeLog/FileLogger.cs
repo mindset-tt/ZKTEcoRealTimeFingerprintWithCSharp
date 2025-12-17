@@ -6,10 +6,19 @@ namespace ZKTecoRealTimeLog
 {
     public class FileLogger : IDisposable
     {
+        #region Fields & Properties
+
         private readonly string _logFilePath;
         private readonly object _lock = new object();
         private StreamWriter? _writer;
         private readonly bool _enabled;
+
+        public string LogFilePath => _logFilePath;
+        public bool IsEnabled => _enabled && _writer != null;
+
+        #endregion
+
+        #region Constructor
 
         public FileLogger(string? logFilePath = null, bool append = false)
         {
@@ -61,8 +70,9 @@ namespace ZKTecoRealTimeLog
             }
         }
 
-        public string LogFilePath => _logFilePath;
-        public bool IsEnabled => _enabled && _writer != null;
+        #endregion
+
+        #region Logging Methods
 
         public void Log(string level, string message)
         {
@@ -113,6 +123,10 @@ namespace ZKTecoRealTimeLog
         public void LogWarning(string message) => Log("WARN", message);
         public void LogEvent(string message) => Log("EVENT", message);
 
+        #endregion
+
+        #region IDisposable
+
         public void Dispose()
         {
             lock (_lock)
@@ -121,5 +135,8 @@ namespace ZKTecoRealTimeLog
                 _writer = null;
             }
         }
+
+        #endregion
     }
 }
+

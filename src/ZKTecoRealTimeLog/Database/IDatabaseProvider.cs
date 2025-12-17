@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 
 namespace ZKTecoRealTimeLog.Database
 {
+    #region Interface
+
     /// <summary>
     /// Interface for database operations
     /// </summary>
@@ -25,6 +27,10 @@ namespace ZKTecoRealTimeLog.Database
             string? deviceIp = null,
             string? deviceName = null);
     }
+
+    #endregion
+
+    #region Configuration
 
     /// <summary>
     /// Database configuration
@@ -55,4 +61,7 @@ namespace ZKTecoRealTimeLog.Database
             };
         }
     }
+
+    #endregion
 }
+
