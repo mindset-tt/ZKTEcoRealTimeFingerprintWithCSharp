@@ -26,6 +26,12 @@ namespace ZKTecoRealTimeLog
                 return;
             }
 
+            if (args.Contains("--batch-sync"))
+            {
+                await RunBatchSyncAsync();
+                return;
+            }
+
             if (isConsoleMode)
             {
                 // Run in console mode (interactive)
@@ -80,6 +86,105 @@ namespace ZKTecoRealTimeLog
             await host.RunAsync();
         }
 
+
+        static async Task RunBatchSyncAsync()
+        {
+            Console.WriteLine("===========================================");
+            Console.WriteLine("   ZKTeco Real-Time Attendance Monitor");
+            Console.WriteLine("   BATCH SYNC MODE");
+            Console.WriteLine("===========================================");
+            Console.WriteLine();
+
+            // 1. Load .env
+            string envPath = Path.Combine(AppContext.BaseDirectory, ".env");
+            if (File.Exists(envPath))
+            {
+                foreach (var line in File.ReadAllLines(envPath))
+                {
+                    var parts = line.Split('=', 2);
+                    if (parts.Length == 2)
+                    {
+                        var key = parts[0].Trim();
+                        var value = parts[1].Trim();
+                        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
+                            Environment.SetEnvironmentVariable(key, value);
+                    }
+                }
+            }
+
+            // 2. Initialize Databases
+            using var databases = new Database.MultiDatabaseManager();
+            await databases.InitializeFromEnvironmentAsync();
+
+            if (databases.ActiveCount == 0)
+            {
+                Console.WriteLine("Error: No databases enabled. Configure .env file.");
+                return;
+            }
+
+            // 3. Clear Data (Safety Warning handled by script usually, but here we do it)
+            Console.WriteLine("Wait 5 seconds... Press Ctrl+C to cancel if this is mistake.");
+            await Task.Delay(5000); // Safety delay
+
+            Console.WriteLine("Clearing existing data...");
+            await databases.ClearAllDataAsync();
+
+            // 4. Connect Devices
+            using var deviceManager = new MultiDeviceManager();
+            var configs = MultiDeviceManager.LoadDeviceConfigs();
+            
+            if (configs.Count == 0)
+            {
+                Console.WriteLine("Error: No devices configured.");
+                return;
+            }
+
+            deviceManager.ConnectAll(configs);
+            if (deviceManager.ConnectedCount == 0)
+            {
+                Console.WriteLine("Error: Could not connect to any devices.");
+                return;
+            }
+
+            // 5. Sync Data
+            Console.WriteLine($"Fetching logs from {deviceManager.ConnectedCount} devices...");
+            
+            // Allow buffers to download? (Actually ReadAllLogs uses blocking calls usually)
+            // But sometimes need a moment after connect.
+            await Task.Delay(2000); 
+
+            var logs = deviceManager.ReadAllLogs();
+            Console.WriteLine($"Found {logs.Count} Total Logs.");
+
+            Console.WriteLine("Processing logs...");
+            
+            // Sort by time to ensure correct "First in / Last out" logic
+            var orderedLogs = logs.OrderBy(l => l.EventTime).ToList();
+            
+            int count = 0;
+            foreach (var log in orderedLogs)
+            {
+                // Simulate event processing
+                count++;
+                if (count % 100 == 0) Console.Write($".");
+
+                await databases.InsertAttendanceLogAsync(
+                    log.EnrollNumber, 
+                    log.EventTime, 
+                    true, // Assuming logs from device are valid
+                    log.AttState, 
+                    "Unknown", // Description might need helper 
+                    log.VerifyMethod, 
+                    "Unknown", 
+                    log.WorkCode, 
+                    log.DeviceIP, 
+                    log.DeviceName
+                );
+            }
+            Console.WriteLine();
+            Console.WriteLine("Batch Sync Completed Successfully.");
+        }
+
         static void ShowHelp()
         {
             Console.WriteLine("===========================================");
@@ -93,6 +198,7 @@ namespace ZKTecoRealTimeLog
             Console.WriteLine("  --console, -c   Run in console mode (interactive)");
             Console.WriteLine("  --help, -h      Show this help message");
             Console.WriteLine("  --db-types      Show supported database types");
+            Console.WriteLine("  --batch-sync    Clear DB and Sync all history from devices");
             Console.WriteLine();
             Console.WriteLine("Windows Service Commands (run as Administrator):");
             Console.WriteLine();

@@ -124,7 +124,7 @@ namespace ZKTecoRealTimeLog.Database
 
                 var insertSql = @"
                     INSERT INTO attendance_logs 
-                    (user_id, event_time, is_valid, att_state, att_state_desc, verify_method, verify_method_desc, work_code, device_ip, device_name)
+                    (""user_id"", ""event_time"", ""is_valid"", ""att_state"", ""att_state_desc"", ""verify_method"", ""verify_method_desc"", ""work_code"", ""device_ip"", ""device_name"")
                     VALUES 
                     (@userId, @eventTime, @isValid, @attState, @attStateDesc, @verifyMethod, @verifyMethodDesc, @workCode, @deviceIp, @deviceName)
                 ";
@@ -146,6 +146,228 @@ namespace ZKTecoRealTimeLog.Database
             catch (Exception ex)
             {
                 Console.WriteLine($"[PostgreSQL] Error inserting attendance log: {ex.Message}");
+            }
+        }
+
+        public async Task InitializeAttendanceTablesAsync()
+        {
+            if (!IsEnabled) return;
+
+            try
+            {
+                await using var conn = await _dataSource!.OpenConnectionAsync();
+
+                // 1. Employee Table
+                var createEmployeeSql = @"
+                    CREATE TABLE IF NOT EXISTS ""Employee""
+                    (
+                        ""empId"" character varying(255) NOT NULL,
+                        ""empnickName"" character varying(255) NOT NULL DEFAULT '',
+                        ""empGivenName"" character varying(255) NOT NULL DEFAULT '',
+                        ""empFamilyName"" character varying(255) NOT NULL DEFAULT '',
+                        ""gender"" integer NOT NULL DEFAULT 0,
+                        ""address"" character varying(255) NOT NULL DEFAULT '',
+                        ""img character"" varying(255),
+                        ""img_jshfilename"" character varying(255),
+                        ""empTel"" character varying(255) NOT NULL DEFAULT '',
+                        ""empEmail"" character varying(255) NOT NULL DEFAULT '',
+                        ""dateOfBirth"" date NOT NULL DEFAULT CURRENT_DATE,
+                        ""age"" integer,
+                        ""depId"" character varying(255),
+                        ""positionId"" character varying(255),
+                        ""empStatus"" integer NOT NULL DEFAULT 1,
+                        ""joinDate"" date NOT NULL DEFAULT CURRENT_DATE,
+                        ""StartCutIns"" date,
+                        ""AcceptDate"" date,
+                        ""empRetireDate"" date,
+                        ""empRemark"" text,
+                        ""hourlyRate"" integer NOT NULL DEFAULT 0,
+                        ""seatID"" integer NOT NULL DEFAULT 0,
+                        ""seatNumber"" integer,
+                        ""empHobby"" text,
+                        ""createdAt"" timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                        ""updatedAt"" timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                        ""createdBy"" character varying(255),
+                        ""updateby"" character varying(255),
+                        CONSTRAINT ""Employee_pkey"" PRIMARY KEY (""empId"")
+                    );
+                ";
+                await using var cmdEmp = new NpgsqlCommand(createEmployeeSql, conn);
+                await cmdEmp.ExecuteNonQueryAsync();
+
+                // 2. WorkRecord Table (Postgres uses SERIAL for auto-increment usually, but user sql said integer NOT NULL. 
+                // However, pkey usually implies auto-increment or unique. I will use SERIAL for ID in new records if not provided, 
+                // but user SQL was specific: ""workrcId"" integer NOT NULL PRIMARY KEY. 
+                // If I insert, I need an ID. I'll change it to SERIAL for compatibility if it doesn't exist, 
+                // OR assuming there's a sequence. 
+                // User SQL: "workrcId" integer NOT NULL, ... CONSTRAINT "WorkRecord_pkey" PRIMARY KEY ("workrcId")
+                // Code needs to handle ID generation if DB doesn't. 
+                // Let's use SERIAL for the primary key definition if we are creating it, to allow auto-increment.)
+                
+                var createWorkRecordSql = @"
+                    CREATE TABLE IF NOT EXISTS ""WorkRecord""
+                    (
+                        ""workrcId"" SERIAL PRIMARY KEY,
+                        ""empid"" character varying(255) NOT NULL,
+                        ""date"" date NOT NULL,
+                        ""workStart"" time without time zone,
+                        ""workEnd"" time without time zone,
+                        ""worktime"" double precision,
+                        ""codeRowPerDay"" character varying(255),
+                        ""docPagePerDay"" character varying(255),
+                        ""consultation"" text,
+                        ""description"" text,
+                        ""createat"" timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                        ""updatedAt"" timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                        ""createdBy"" character varying(255),
+                        ""updatedBy"" character varying(255)
+                    );
+
+                    CREATE INDEX IF NOT EXISTS ""jfcidx_WorkRecord_date"" ON ""WorkRecord"" (date);
+                    CREATE INDEX IF NOT EXISTS ""jfcidx_WorkRecord_empid"" ON ""WorkRecord"" (empid);
+                ";
+                await using var cmdWr = new NpgsqlCommand(createWorkRecordSql, conn);
+                await cmdWr.ExecuteNonQueryAsync();
+
+                Console.WriteLine("[PostgreSQL] Attendance tables (Employee, WorkRecord) initialized");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PostgreSQL] Error initializing attendance tables: {ex.Message}");
+            }
+        }
+
+        public async Task ClearDataAsync()
+        {
+            if (!IsEnabled) return;
+            try
+            {
+                await using var conn = await _dataSource!.OpenConnectionAsync();
+                // Clear WorkRecord and AttendanceLogs. NOT Employee.
+                await using var cmd = new NpgsqlCommand(@"
+                    TRUNCATE TABLE ""WorkRecord""; 
+                    TRUNCATE TABLE attendance_logs;
+                ", conn);
+                await cmd.ExecuteNonQueryAsync();
+                Console.WriteLine("[PostgreSQL] Data cleared (WorkRecord, attendance_logs)");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PostgreSQL] Error clearing data: {ex.Message}");
+            }
+        }
+
+        public async Task<Employee?> GetEmployeeAsync(string empId)
+        {
+            if (!IsEnabled) return null;
+            try
+            {
+                await using var conn = await _dataSource!.OpenConnectionAsync();
+                await using var cmd = new NpgsqlCommand(@"SELECT ""empId"", ""empnickName"", ""empGivenName"", ""empFamilyName"" FROM ""Employee"" WHERE ""empId"" = @empId and ""active"" = 1", conn);
+                cmd.Parameters.AddWithValue("empId", empId);
+                
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    return new Employee
+                    {
+                        EmpId = reader.GetString(0),
+                        EmpNickName = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                        EmpGivenName = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                        EmpFamilyName = reader.IsDBNull(3) ? "" : reader.GetString(3)
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PostgreSQL] Error getting employee: {ex.Message}");
+            }
+            return null;
+        }
+
+        public async Task<WorkRecord?> GetTodayWorkRecordAsync(string empId)
+        {
+            if (!IsEnabled) return null;
+            try
+            {
+                var today = DateTime.Today;
+                await using var conn = await _dataSource!.OpenConnectionAsync();
+                await using var cmd = new NpgsqlCommand(@"
+                    SELECT ""workrcId"", ""empid"", ""date"", ""workStart"", ""workEnd"", worktime 
+                    FROM ""WorkRecord"" 
+                    WHERE ""empid"" = @empId AND ""date"" = @date", conn);
+                cmd.Parameters.AddWithValue("empId", empId);
+                cmd.Parameters.AddWithValue("date", today);
+
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    return new WorkRecord
+                    {
+                        WorkRcId = reader.GetInt32(0),
+                        EmpId = reader.GetString(1),
+                        Date = reader.GetDateTime(2),
+                        WorkStart = reader.IsDBNull(3) ? null : reader.GetFieldValue<TimeSpan>(3),
+                        WorkEnd = reader.IsDBNull(4) ? null : reader.GetFieldValue<TimeSpan>(4),
+                        WorkTime = reader.IsDBNull(5) ? null : reader.GetDouble(5)
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PostgreSQL] Error getting WorkRecord: {ex.Message}");
+            }
+            return null;
+        }
+
+        public async Task CreateWorkRecordAsync(WorkRecord record)
+        {
+            if (!IsEnabled) return;
+            try
+            {
+                await using var conn = await _dataSource!.OpenConnectionAsync();
+                var sql = @"
+                    INSERT INTO ""WorkRecord"" (""empid"", ""date"", ""workStart"", ""workEnd"", ""worktime"", ""createat"")
+                    VALUES (@empId, @date, @workStart, @workEnd, @workTime, @createdAt)
+                ";
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("empId", record.EmpId);
+                cmd.Parameters.AddWithValue("date", record.Date);
+                cmd.Parameters.AddWithValue("workStart", (object?)record.WorkStart ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("workEnd", (object?)record.WorkEnd ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("workTime", (object?)record.WorkTime ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("createdAt", (object?)record.CreatedAt ?? DateTime.Now);
+                
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PostgreSQL] Error creating WorkRecord: {ex.Message}");
+            }
+        }
+
+        public async Task UpdateWorkRecordAsync(WorkRecord record)
+        {
+            if (!IsEnabled) return;
+            try
+            {
+                await using var conn = await _dataSource!.OpenConnectionAsync();
+                var sql = @"
+                    UPDATE ""WorkRecord"" 
+                    SET ""workEnd"" = @workEnd, ""worktime"" = @workTime, ""updatedAt"" = @updatedAt
+                    WHERE ""workrcId"" = @id
+                ";
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("workEnd", (object?)record.WorkEnd ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("workTime", (object?)record.WorkTime ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("updatedAt", DateTime.Now);
+                cmd.Parameters.AddWithValue("id", record.WorkRcId);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PostgreSQL] Error updating WorkRecord: {ex.Message}");
             }
         }
 

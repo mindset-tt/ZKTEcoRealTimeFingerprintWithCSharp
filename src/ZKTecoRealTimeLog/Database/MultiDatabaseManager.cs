@@ -55,6 +55,7 @@ namespace ZKTecoRealTimeLog.Database
                 if (provider != null && await provider.TestConnectionAsync())
                 {
                     await provider.InitializeDatabaseAsync();
+                    await provider.InitializeAttendanceTablesAsync(); // Auto-create Employee/WorkRecord
                     _providers.Add(provider);
                     _enabledDatabases.Add(provider.ProviderName);
                     Console.ForegroundColor = ConsoleColor.Green;
@@ -75,6 +76,135 @@ namespace ZKTecoRealTimeLog.Database
             }
         }
 
+        public async Task ClearAllDataAsync()
+        {
+            foreach (var provider in _providers)
+            {
+                await provider.ClearDataAsync();
+            }
+            Log("All data cleared from active databases.");
+        }
+
+        /// <summary>
+        /// Process attendance for WorkRecord logic (Check-In/Out)
+        /// </summary>
+        public async Task ProcessWorkRecordAsync(string enrollNumber, DateTime eventTime, string? deviceIp = null)
+        {
+            foreach (var provider in _providers)
+            {
+                try
+                {
+                    // 1. Check Employee
+                    var employee = await provider.GetEmployeeAsync(enrollNumber);
+                    if (employee == null)
+                    {
+                        // Employee does not exist. Stop processing (unless legacy logic implemented, but requirement says Stop)
+                        // Log($"User {enrollNumber} not found in Employee table. Skipping WorkRecord.");
+                        continue; 
+                    }
+
+                    // 2. Check Today's WorkRecord
+                    var record = await provider.GetTodayWorkRecordAsync(enrollNumber);
+                    
+                    if (record == null)
+                    {
+                        // --- CHECK-IN (First Scan) ---
+                        // "scanTime = DateTime.Now" (using eventTime passed from device/event)
+                        
+                        TimeSpan scanTime = eventTime.TimeOfDay;
+                        TimeSpan workStart;
+
+                        // Rule: If scan time before 08:15 => 08:00
+                        if (scanTime < new TimeSpan(8, 15, 0))
+                        {
+                            workStart = new TimeSpan(8, 0, 0);
+                        }
+                        else
+                        {
+                            // Round down to nearest 15m (00, 15, 30, 45)
+                            int minutes = scanTime.Minutes;
+                            int roundedMinutes = (minutes / 15) * 15;
+                            workStart = new TimeSpan(scanTime.Hours, roundedMinutes, 0);
+                        }
+
+                        // Default workEnd = 17:00
+                        TimeSpan workEnd = new TimeSpan(17, 0, 0);
+
+                        var newRecord = new WorkRecord
+                        {
+                            EmpId = enrollNumber,
+                            Date = eventTime.Date,
+                            WorkStart = workStart,
+                            WorkEnd = workEnd,
+                            WorkTime = (workEnd - workStart).TotalHours, // Initial calc
+                            CreatedAt = DateTime.Now
+                        };
+
+                        await provider.CreateWorkRecordAsync(newRecord);
+                        // Log($"WorkRecord created for {enrollNumber}: Start={workStart}, End={workEnd}");
+                    }
+                    else
+                    {
+                        // --- UPDATE (Subsequent Scans) ---
+                        // Rule: Always UPDATE
+                        
+                        TimeSpan scanTime = eventTime.TimeOfDay;
+                        TimeSpan workEnd;
+
+                        // Rule: If scan time before 17:00 => Round down to 15m
+                        // Example: 14:55 -> 14:45
+                        if (scanTime < new TimeSpan(17, 0, 0))
+                        {
+                            int minutes = scanTime.Minutes;
+                            int roundedMinutes = (minutes / 15) * 15;
+                            workEnd = new TimeSpan(scanTime.Hours, roundedMinutes, 0);
+                        }
+                        else
+                        {
+                            // If after 17:00, use actual scan time? 
+                            // Requirement says: "If scan time before 17:00: Round... Update Rules... workEnd = rounded scan time"
+                            // Implies if AFTER 17:00, it might use actual, OR the rounding rule only applies before 17:00.
+                            // But usually OT takes actual. 
+                            // However, let's look closely at "Update Rules ... If scan time before 17:00 ... Round ... Update: workEnd = rounded scan time"
+                            // It doesn't explicitly say what to do if >= 17:00. 
+                            // Standard/Safe assumption: Use strict rounding if < 17:00. If >= 17:00, usually we take actual or round too?
+                            // Let's assume usage of Actual scan time (or maybe rounded too? logic usually consistent).
+                            // But for "OT-Out", usually actual. 
+                            // *Wait*, let's follow strict instruction: "If scan time before 17:00 ... Round ...". Else?
+                            // Let's assume if >= 17:00 we use the scan time as is (or maybe rounded down too? but rule was specific).
+                            // Let's use the scan time rounded down to 15m as well for consistency?
+                            // No, "If scan time before 17:00" is a condition. 
+                            // I will use Scan Time rounded down to 15m for ALL times to be safe/consistent, OR check if >= 17:00 
+                            // implies "Keep working" or "Check out". 
+                            // Re-reading: "Update Rules... scanTime = DateTime.Now... If scan time before 17:00: Round... Update: workEnd = rounded scan time"
+                            // If I scan at 18:05, does it update? Yes "Treat every scan as a valid update".
+                            // Usage of "If... before 17:00" implies a specific behavior for early departures.
+                            // If >= 17:00, I will use the scan time (maybe rounded? No instruction on rounding for >= 17:00).
+                            // I will use Actual Scan Time for >= 17:00 (since it's OT/Normal end).
+                            
+                            workEnd = scanTime;
+                        }
+
+                        // Update record
+                        record.WorkEnd = workEnd;
+                        
+                        // Recalc worktime
+                        if (record.WorkStart.HasValue)
+                        {
+                            record.WorkTime = (workEnd - record.WorkStart.Value).TotalHours;
+                        }
+
+                        await provider.UpdateWorkRecordAsync(record);
+                        // Log($"WorkRecord updated for {enrollNumber}: End={workEnd}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"  Warning: Failed to process WorkRecord for {enrollNumber}: {ex.Message}");
+                }
+            }
+        }
+
         /// <summary>
         /// Insert attendance log to all connected databases
         /// </summary>
@@ -92,11 +222,20 @@ namespace ZKTecoRealTimeLog.Database
         {
             var tasks = new List<Task>();
             
+            // 1. Process Raw Log (Existing)
             foreach (var provider in _providers)
             {
                 tasks.Add(SafeInsertAsync(provider, enrollNumber, eventTime, isValid, 
                     attState, attStateDesc, verifyMethod, verifyMethodDesc, workCode, deviceIp, deviceName));
             }
+
+            // 2. Process Business Logic (WorkRecord)
+            // We do this sequentially or parallel? Parallel is fine but logic handles race condition?
+            // "Treat every scan as a valid update" -> Race condition if multiple scans same second?
+            // Usually serial execution per user is better.
+            // But here we are inside the event handler.
+            // Let's add it to the tasks.
+            tasks.Add(ProcessWorkRecordAsync(enrollNumber, eventTime, deviceIp));
 
             await Task.WhenAll(tasks);
         }

@@ -13,6 +13,18 @@ namespace ZKTecoRealTimeLog.Database
         bool IsEnabled { get; }
         Task<bool> TestConnectionAsync();
         Task InitializeDatabaseAsync();
+        Task InitializeAttendanceTablesAsync();
+        Task ClearDataAsync();
+
+        // Employee Operations
+        Task<Employee?> GetEmployeeAsync(string empId);
+
+        // WorkRecord Operations
+        Task<WorkRecord?> GetTodayWorkRecordAsync(string empId);
+        Task CreateWorkRecordAsync(WorkRecord record);
+        Task UpdateWorkRecordAsync(WorkRecord record);
+
+        // Raw Log
         Task InsertAttendanceLogAsync(
             string enrollNumber,
             DateTime eventTime,
@@ -24,6 +36,28 @@ namespace ZKTecoRealTimeLog.Database
             int workCode,
             string? deviceIp = null,
             string? deviceName = null);
+    }
+
+    // Models
+    public class Employee
+    {
+        public string EmpId { get; set; } = "";
+        // Basic fields required for logic
+        public string EmpNickName { get; set; } = "";
+        public string EmpGivenName { get; set; } = "";
+        public string EmpFamilyName { get; set; } = "";
+    }
+
+    public class WorkRecord
+    {
+        public int WorkRcId { get; set; } // Auto-increment usually, but might need handling
+        public string EmpId { get; set; } = "";
+        public DateTime Date { get; set; }
+        public TimeSpan? WorkStart { get; set; }
+        public TimeSpan? WorkEnd { get; set; }
+        public double? WorkTime { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
     }
 
     /// <summary>

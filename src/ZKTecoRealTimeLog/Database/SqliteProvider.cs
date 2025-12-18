@@ -147,6 +147,233 @@ namespace ZKTecoRealTimeLog.Database
             }
         }
 
+        public async Task InitializeAttendanceTablesAsync()
+        {
+            if (!IsEnabled) return;
+            try
+            {
+                await using var conn = new SqliteConnection(_connectionString);
+                await conn.OpenAsync();
+
+                var createEmployeeSql = @"
+                    CREATE TABLE IF NOT EXISTS Employee (
+                        empId TEXT PRIMARY KEY NOT NULL,
+                        empnickName TEXT NOT NULL DEFAULT '',
+                        empGivenName TEXT NOT NULL DEFAULT '',
+                        empFamilyName TEXT NOT NULL DEFAULT '',
+                        gender INTEGER NOT NULL DEFAULT 0,
+                        address TEXT NOT NULL DEFAULT '',
+                        img TEXT,
+                        img_jshfilename TEXT,
+                        empTel TEXT NOT NULL DEFAULT '',
+                        empEmail TEXT NOT NULL DEFAULT '',
+                        dateOfBirth TEXT NOT NULL DEFAULT CURRENT_DATE,
+                        age INTEGER,
+                        depId TEXT,
+                        positionId TEXT,
+                        empStatus INTEGER NOT NULL DEFAULT 1,
+                        joinDate TEXT NOT NULL DEFAULT CURRENT_DATE,
+                        StartCutIns TEXT,
+                        AcceptDate TEXT,
+                        empRetireDate TEXT,
+                        empRemark TEXT,
+                        hourlyRate INTEGER NOT NULL DEFAULT 0,
+                        seatID INTEGER NOT NULL DEFAULT 0,
+                        seatNumber INTEGER,
+                        empHobby TEXT,
+                        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+                        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+                        createdBy TEXT,
+                        updateby TEXT
+                    );
+                ";
+                await using var cmdEmp = new SqliteCommand(createEmployeeSql, conn);
+                await cmdEmp.ExecuteNonQueryAsync();
+
+                var createWorkRecordSql = @"
+                    CREATE TABLE IF NOT EXISTS WorkRecord (
+                        workrcId INTEGER PRIMARY KEY AUTOINCREMENT,
+                        empid TEXT NOT NULL,
+                        date TEXT NOT NULL,
+                        workStart TEXT,
+                        workEnd TEXT,
+                        worktime REAL,
+                        codeRowPerDay TEXT,
+                        docPagePerDay TEXT,
+                        consultation TEXT,
+                        description TEXT,
+                        createat TEXT DEFAULT CURRENT_TIMESTAMP,
+                        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+                        createdBy TEXT,
+                        updatedBy TEXT
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_wr_date ON WorkRecord(date);
+                    CREATE INDEX IF NOT EXISTS idx_wr_empid ON WorkRecord(empid);
+                ";
+                await using var cmdWr = new SqliteCommand(createWorkRecordSql, conn);
+                await cmdWr.ExecuteNonQueryAsync();
+
+                Console.WriteLine("[SQLite] Attendance tables initialized");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SQLite] Error initializing attendance tables: {ex.Message}");
+            }
+        }
+
+        public async Task ClearDataAsync()
+        {
+            if (!IsEnabled) return;
+            try
+            {
+                await using var conn = new SqliteConnection(_connectionString);
+                await conn.OpenAsync();
+                await using var cmd = new SqliteCommand(@"
+                    DELETE FROM WorkRecord;
+                    DELETE FROM attendance_logs;
+                    UPDATE sqlite_sequence SET seq = 0 WHERE name = 'WorkRecord';
+                    UPDATE sqlite_sequence SET seq = 0 WHERE name = 'attendance_logs';
+                ", conn);
+                await cmd.ExecuteNonQueryAsync();
+                Console.WriteLine("[SQLite] Data cleared");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SQLite] Error clearing data: {ex.Message}");
+            }
+        }
+
+        public async Task<Employee?> GetEmployeeAsync(string empId)
+        {
+            if (!IsEnabled) return null;
+            try
+            {
+                await using var conn = new SqliteConnection(_connectionString);
+                await conn.OpenAsync();
+                await using var cmd = new SqliteCommand("SELECT empId, empnickName, empGivenName, empFamilyName FROM Employee WHERE empId = $empId", conn);
+                cmd.Parameters.AddWithValue("$empId", empId);
+                
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    return new Employee
+                    {
+                        EmpId = reader.GetString(0),
+                        EmpNickName = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                        EmpGivenName = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                        EmpFamilyName = reader.IsDBNull(3) ? "" : reader.GetString(3)
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SQLite] Error getting employee: {ex.Message}");
+            }
+            return null;
+        }
+
+        public async Task<WorkRecord?> GetTodayWorkRecordAsync(string empId)
+        {
+            if (!IsEnabled) return null;
+            try
+            {
+                var today = DateTime.Today;
+                await using var conn = new SqliteConnection(_connectionString);
+                await conn.OpenAsync();
+                await using var cmd = new SqliteCommand(@"
+                    SELECT workrcId, empid, date, workStart, workEnd, worktime 
+                    FROM WorkRecord 
+                    WHERE empid = $empId AND date = $date", conn);
+                cmd.Parameters.AddWithValue("$empId", empId);
+                cmd.Parameters.AddWithValue("$date", today.ToString("yyyy-MM-dd HH:mm:ss")); // SQLite stores dates as strings mostly
+
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    TimeSpan? workStart = null;
+                    if (!reader.IsDBNull(3))
+                    {
+                        // Parse TimeSpan from string or whatever SQLite stored
+                         if (TimeSpan.TryParse(reader.GetString(3), out TimeSpan ws)) workStart = ws;
+                    }
+
+                    TimeSpan? workEnd = null;
+                    if (!reader.IsDBNull(4))
+                    {
+                         if (TimeSpan.TryParse(reader.GetString(4), out TimeSpan we)) workEnd = we;
+                    }
+
+                    return new WorkRecord
+                    {
+                        WorkRcId = reader.GetInt32(0),
+                        EmpId = reader.GetString(1),
+                        Date = DateTime.Parse(reader.GetString(2)), // Assuming stored as ISO string
+                        WorkStart = workStart,
+                        WorkEnd = workEnd,
+                        WorkTime = reader.IsDBNull(5) ? null : reader.GetDouble(5)
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                // Console.WriteLine($"[SQLite] Error getting WorkRecord: {ex.Message}");
+            }
+            return null;
+        }
+
+        public async Task CreateWorkRecordAsync(WorkRecord record)
+        {
+            if (!IsEnabled) return;
+            try
+            {
+                await using var conn = new SqliteConnection(_connectionString);
+                await conn.OpenAsync();
+                var sql = @"
+                    INSERT INTO WorkRecord (empid, date, workStart, workEnd, worktime, createat)
+                    VALUES ($empId, $date, $workStart, $workEnd, $workTime, $createdAt)
+                ";
+                await using var cmd = new SqliteCommand(sql, conn);
+                cmd.Parameters.AddWithValue("$empId", record.EmpId);
+                cmd.Parameters.AddWithValue("$date", record.Date.ToString("yyyy-MM-dd HH:mm:ss"));
+                cmd.Parameters.AddWithValue("$workStart", (object?)record.WorkStart?.ToString() ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("$workEnd", (object?)record.WorkEnd?.ToString() ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("$workTime", (object?)record.WorkTime ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("$createdAt", (object?)record.CreatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SQLite] Error creating WorkRecord: {ex.Message}");
+            }
+        }
+
+        public async Task UpdateWorkRecordAsync(WorkRecord record)
+        {
+            if (!IsEnabled) return;
+            try
+            {
+                await using var conn = new SqliteConnection(_connectionString);
+                await conn.OpenAsync();
+                var sql = @"
+                    UPDATE WorkRecord 
+                    SET workEnd = $workEnd, worktime = $workTime, updatedAt = $updatedAt
+                    WHERE workrcId = $id
+                ";
+                await using var cmd = new SqliteCommand(sql, conn);
+                cmd.Parameters.AddWithValue("$workEnd", (object?)record.WorkEnd?.ToString() ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("$workTime", (object?)record.WorkTime ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("$updatedAt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                cmd.Parameters.AddWithValue("$id", record.WorkRcId);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SQLite] Error updating WorkRecord: {ex.Message}");
+            }
+        }
+
         public void Dispose()
         {
             // SqliteConnection doesn't need explicit disposal at provider level

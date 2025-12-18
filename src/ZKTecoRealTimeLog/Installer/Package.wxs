@@ -110,6 +110,12 @@
               Source="$(var.ProjectDir)\InstallSDK.bat" />
       </Component>
 
+      <!-- Batch Sync Script -->
+      <Component Id="BatchSyncScript" Guid="AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA">
+        <File Id="sync_and_clean.bat" 
+              Source="$(var.ProjectDir)\sync_and_clean.bat" />
+      </Component>
+
       <!-- Create logs folder -->
       <Component Id="LogsFolderComponent" Guid="55555555-5555-5555-5555-555555555555" Directory="LogsFolder">
         <CreateFolder />
