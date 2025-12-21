@@ -40,6 +40,7 @@
       <Directory Id="INSTALLFOLDER" Name="ZKTeco Attendance">
         <Directory Id="LogsFolder" Name="logs" />
         <Directory Id="DataFolder" Name="data" />
+        <Directory Id="SDKFolder" Name="sdk" />
       </Directory>
     </StandardDirectory>
 
@@ -97,19 +98,6 @@
               Source="$(var.ProjectDir)\..\..\docs\README.md" />
       </Component>
 
-      <!-- ZKTeco SDK DLL -->
-      <Component Id="ZKemkeeperDll" Guid="44444444-4444-4444-4444-444444444444">
-        <File Id="zkemkeeper.dll" 
-              Source="$(var.PublishDir)\zkemkeeper.dll" 
-              KeyPath="yes" />
-      </Component>
-
-      <!-- Install SDK Script -->
-      <Component Id="InstallSDKScript" Guid="99999999-9999-9999-9999-999999999999">
-        <File Id="InstallSDK.bat" 
-              Source="$(var.ProjectDir)\InstallSDK.bat" />
-      </Component>
-
       <!-- Batch Sync Script -->
       <Component Id="BatchSyncScript" Guid="AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA">
         <File Id="sync_and_clean.bat" 
@@ -126,6 +114,115 @@
       <Component Id="DataFolderComponent" Guid="66666666-6666-6666-6666-666666666666" Directory="DataFolder">
         <CreateFolder />
         <util:RemoveFolderEx On="uninstall" Property="DataFolder" />
+      </Component>
+
+    </ComponentGroup>
+
+    <!-- SDK Components (in SDK subfolder) -->
+    <ComponentGroup Id="SDKComponents" Directory="SDKFolder">
+      
+      <!-- SDK Install Script -->
+      <Component Id="SDKInstallScript" Guid="BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB">
+        <File Id="SDKinstall32.bat" Source="$(var.ProjectDir)\sdk\SDKinstall32.bat" KeyPath="yes" />
+      </Component>
+
+      <!-- SDK Uninstall Script -->
+      <Component Id="SDKUninstallScript" Guid="CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC">
+        <File Id="SDKUninstall32.bat" Source="$(var.ProjectDir)\sdk\SDKUninstall32.bat" KeyPath="yes" />
+      </Component>
+
+      <!-- Main SDK DLL - zkemkeeper.dll -->
+      <Component Id="ZkemkeeperDll" Guid="44444444-4444-4444-4444-444444444444">
+        <File Id="zkemkeeper.dll" Source="$(var.ProjectDir)\sdk\zkemkeeper.dll" KeyPath="yes" />
+      </Component>
+
+      <!-- Supporting DLLs -->
+      <Component Id="ZkemsdkDll" Guid="DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD">
+        <File Id="zkemsdk.dll" Source="$(var.ProjectDir)\sdk\zkemsdk.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="ZkemsdkutilsDll" Guid="EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEEEEEE">
+        <File Id="zkemsdkutils.dll" Source="$(var.ProjectDir)\sdk\zkemsdkutils.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="ZKEMCryptoDll" Guid="FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF">
+        <File Id="ZKEMCrypto.dll" Source="$(var.ProjectDir)\sdk\ZKEMCrypto.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="ZKCommuCryptoClientDll" Guid="11111111-2222-3333-4444-555555555555">
+        <File Id="ZKCommuCryptoClient.dll" Source="$(var.ProjectDir)\sdk\ZKCommuCryptoClient.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="CommproDll" Guid="22222222-3333-4444-5555-666666666666">
+        <File Id="commpro.dll" Source="$(var.ProjectDir)\sdk\commpro.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="CommsDll" Guid="33333333-4444-5555-6666-777777777777">
+        <File Id="comms.dll" Source="$(var.ProjectDir)\sdk\comms.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="PlcommproDll" Guid="44444444-5555-6666-7777-888888888888">
+        <File Id="plcommpro.dll" Source="$(var.ProjectDir)\sdk\plcommpro.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="PlcommsDll" Guid="55555555-6666-7777-8888-999999999999">
+        <File Id="plcomms.dll" Source="$(var.ProjectDir)\sdk\plcomms.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="TcpcommDll" Guid="66666666-7777-8888-9999-AAAAAAAAAAAA">
+        <File Id="tcpcomm.dll" Source="$(var.ProjectDir)\sdk\tcpcomm.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="PltcpcommDll" Guid="77777777-8888-9999-AAAA-BBBBBBBBBBBB">
+        <File Id="pltcpcomm.dll" Source="$(var.ProjectDir)\sdk\pltcpcomm.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="UsbcommDll" Guid="88888888-9999-AAAA-BBBB-CCCCCCCCCCCC">
+        <File Id="usbcomm.dll" Source="$(var.ProjectDir)\sdk\usbcomm.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="PlusbcommDll" Guid="99999999-AAAA-BBBB-CCCC-DDDDDDDDDDDD">
+        <File Id="plusbcomm.dll" Source="$(var.ProjectDir)\sdk\plusbcomm.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="UsbstdDll" Guid="AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE">
+        <File Id="usbstd.dll" Source="$(var.ProjectDir)\sdk\usbstd.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="RscommDll" Guid="BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF">
+        <File Id="rscomm.dll" Source="$(var.ProjectDir)\sdk\rscomm.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="PlrscommDll" Guid="CCCCCCCC-DDDD-EEEE-FFFF-111111111111">
+        <File Id="plrscomm.dll" Source="$(var.ProjectDir)\sdk\plrscomm.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="RscagentDll" Guid="DDDDDDDD-EEEE-FFFF-1111-222222222222">
+        <File Id="rscagent.dll" Source="$(var.ProjectDir)\sdk\rscagent.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="PlrscagentDll" Guid="EEEEEEEE-FFFF-1111-2222-333333333333">
+        <File Id="plrscagent.dll" Source="$(var.ProjectDir)\sdk\plrscagent.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="LibareacodeDll" Guid="FFFFFFFF-1111-2222-3333-444444444444">
+        <File Id="libareacode.dll" Source="$(var.ProjectDir)\sdk\libareacode.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="P4pDll" Guid="11112222-3333-4444-5555-666666666666">
+        <File Id="p4p.dll" Source="$(var.ProjectDir)\sdk\p4p.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="P4pcommDll" Guid="22223333-4444-5555-6666-777777777777">
+        <File Id="p4pcomm.dll" Source="$(var.ProjectDir)\sdk\p4pcomm.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="IOTCAPIsDll" Guid="33334444-5555-6666-7777-888888888888">
+        <File Id="IOTCAPIs.dll" Source="$(var.ProjectDir)\sdk\IOTCAPIs.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="RDTAPIsDll" Guid="44445555-6666-7777-8888-999999999999">
+        <File Id="RDTAPIs.dll" Source="$(var.ProjectDir)\sdk\RDTAPIs.dll" KeyPath="yes" />
       </Component>
 
     </ComponentGroup>
@@ -159,6 +256,14 @@
                   Arguments="[INSTALLFOLDER]logs"
                   WorkingDirectory="INSTALLFOLDER" />
 
+        <!-- Reinstall SDK Shortcut (Run as Admin) -->
+        <Shortcut Id="ReinstallSDKShortcut"
+                  Name="Reinstall SDK (Run as Admin)"
+                  Description="Reinstall ZKTeco SDK DLLs and register COM components"
+                  Target="[SystemFolder]cmd.exe"
+                  Arguments="/c &quot;[SDKFolder]SDKinstall32.bat&quot;"
+                  WorkingDirectory="SDKFolder" />
+
         <!-- Uninstall Shortcut -->
         <Shortcut Id="UninstallShortcut"
                   Name="Uninstall ZKTeco Attendance"
@@ -187,20 +292,32 @@
     <!-- Feature Definition -->
     <Feature Id="ProductFeature" Title="ZKTeco Attendance" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="SDKComponents" />
       <ComponentGroupRef Id="ShortcutComponents" />
       <ComponentGroupRef Id="DesktopShortcutComponents" />
     </Feature>
 
     <!-- Custom Action to Run SDK Installer -->
-    <CustomAction Id="RunInstallSDK" 
-                  FileRef="InstallSDK.bat" 
+    <CustomAction Id="RunSDKInstall" 
+                  FileRef="SDKinstall32.bat" 
                   ExeCommand="" 
                   Execute="deferred" 
-                  Return="check" 
+                  Return="ignore" 
+                  Impersonate="no" />
+
+    <!-- Custom Action to Uninstall SDK on removal -->
+    <CustomAction Id="RunSDKUninstall" 
+                  FileRef="SDKUninstall32.bat" 
+                  ExeCommand="" 
+                  Execute="deferred" 
+                  Return="ignore" 
                   Impersonate="no" />
 
     <InstallExecuteSequence>
-      <Custom Action="RunInstallSDK" After="InstallFiles" Condition="NOT Installed" />
+      <!-- Run SDK install after files are copied (only on new install or upgrade) -->
+      <Custom Action="RunSDKInstall" After="InstallFiles" Condition="NOT REMOVE" />
+      <!-- Run SDK uninstall before files are removed (only on uninstall) -->
+      <Custom Action="RunSDKUninstall" Before="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot;" />
     </InstallExecuteSequence>
 
     <!-- UI -->

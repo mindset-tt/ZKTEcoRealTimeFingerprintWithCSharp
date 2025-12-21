@@ -58,29 +58,12 @@ echo [1/4] Building Release version...
 echo ----------------------------------------
 
 :: Build Release
-:: Build Release
 dotnet publish "%SRC_DIR%\ZKTecoRealTimeLog.csproj" -c Release -r win-x86 --self-contained true -p:PublishSingleFile=true -o "%PUBLISH_DIR%\release"
 
 if %errorLevel% neq 0 (
     echo ERROR: Release build failed!
     pause
     exit /b 1
-)
-
-:: Copy zkemkeeper.dll to release
-if exist "C:\Windows\SysWOW64\zkemkeeper.dll" (
-    copy /Y "C:\Windows\SysWOW64\zkemkeeper.dll" "%PUBLISH_DIR%\release\" >nul
-)
-
-if not exist "%PUBLISH_DIR%\release\zkemkeeper.dll" (
-    echo.
-    echo WARNING: zkemkeeper.dll not found in publish\release!
-    echo Please copy zkemkeeper.dll to:
-    echo %PUBLISH_DIR%\release\
-    echo.
-    echo The build cannot continue without this file.
-    pause
-    if not exist "%PUBLISH_DIR%\release\zkemkeeper.dll" exit /b 1
 )
 
 echo Release build complete!
@@ -90,28 +73,12 @@ echo [2/4] Building Debug version...
 echo ----------------------------------------
 
 :: Build Debug
-:: Build Debug
 dotnet publish "%SRC_DIR%\ZKTecoRealTimeLog.csproj" -c Debug -r win-x86 --self-contained true -p:PublishSingleFile=true -o "%PUBLISH_DIR%\debug"
 
 if %errorLevel% neq 0 (
     echo ERROR: Debug build failed!
     pause
     exit /b 1
-)
-
-:: Copy zkemkeeper.dll to debug
-if exist "C:\Windows\SysWOW64\zkemkeeper.dll" (
-    copy /Y "C:\Windows\SysWOW64\zkemkeeper.dll" "%PUBLISH_DIR%\debug\" >nul
-)
-
-if not exist "%PUBLISH_DIR%\debug\zkemkeeper.dll" (
-    echo.
-    echo WARNING: zkemkeeper.dll not found in publish\debug!
-    echo Please copy zkemkeeper.dll to:
-    echo %PUBLISH_DIR%\debug\
-    echo.
-    pause
-    if not exist "%PUBLISH_DIR%\debug\zkemkeeper.dll" exit /b 1
 )
 
 echo Debug build complete!
