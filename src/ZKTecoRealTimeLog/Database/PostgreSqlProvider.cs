@@ -245,8 +245,8 @@ namespace ZKTecoRealTimeLog.Database
                 await using var conn = await _dataSource!.OpenConnectionAsync();
                 // Clear WorkRecord and AttendanceLogs. NOT Employee.
                 await using var cmd = new NpgsqlCommand(@"
-                    TRUNCATE TABLE ""WorkRecord""; 
-                    TRUNCATE TABLE attendance_logs;
+                    TRUNCATE TABLE ""WorkRecord"" CASCADE; 
+                    TRUNCATE TABLE ""attendance_logs"" CASCADE;
                 ", conn);
                 await cmd.ExecuteNonQueryAsync();
                 Console.WriteLine("[PostgreSQL] Data cleared (WorkRecord, attendance_logs)");
@@ -263,7 +263,7 @@ namespace ZKTecoRealTimeLog.Database
             try
             {
                 await using var conn = await _dataSource!.OpenConnectionAsync();
-                await using var cmd = new NpgsqlCommand(@"SELECT ""empId"", ""empnickName"", ""empGivenName"", ""empFamilyName"" FROM ""Employee"" WHERE ""empId"" = @empId and ""active"" = 1", conn);
+                await using var cmd = new NpgsqlCommand(@"SELECT ""empId"", ""empnickName"", ""empGivenName"", ""empFamilyName"" FROM ""Employee"" WHERE ""empId"" = @empId and ""empStatus"" = 1", conn);
                 cmd.Parameters.AddWithValue("empId", empId);
                 
                 using var reader = await cmd.ExecuteReaderAsync();
@@ -326,11 +326,17 @@ namespace ZKTecoRealTimeLog.Database
             try
             {
                 await using var conn = await _dataSource!.OpenConnectionAsync();
+                
+                // Get the next workrcId since the table may not have auto-increment
+                await using var maxIdCmd = new NpgsqlCommand(@"SELECT COALESCE(MAX(""workrcId""), 0) + 1 FROM ""WorkRecord""", conn);
+                var nextId = Convert.ToInt32(await maxIdCmd.ExecuteScalarAsync());
+                
                 var sql = @"
-                    INSERT INTO ""WorkRecord"" (""empid"", ""date"", ""workStart"", ""workEnd"", ""worktime"", ""createat"")
-                    VALUES (@empId, @date, @workStart, @workEnd, @workTime, @createdAt)
+                    INSERT INTO ""WorkRecord"" (""workrcId"", ""empid"", ""date"", ""workStart"", ""workEnd"", ""worktime"", ""createat"")
+                    VALUES (@workrcId, @empId, @date, @workStart, @workEnd, @workTime, @createdAt)
                 ";
                 await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("workrcId", nextId);
                 cmd.Parameters.AddWithValue("empId", record.EmpId);
                 cmd.Parameters.AddWithValue("date", record.Date);
                 cmd.Parameters.AddWithValue("workStart", (object?)record.WorkStart ?? DBNull.Value);
